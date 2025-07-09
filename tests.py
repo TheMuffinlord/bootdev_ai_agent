@@ -1,23 +1,47 @@
 from functions.get_files_info import get_files_info
 from functions.get_file_content import get_file_content
+from functions.write_file import write_file
 
-
-test1 = get_file_content("calculator", "lorem.txt")
-print(test1)
-print("====")
-test2 = get_file_content("calculator", "main.py")
-print(test2)
+try:
+    test1 = write_file("calculator", "lorem.txt", "wait, this isn't lorem ipsum")
+    print(test1)
+    t1p = True
+except Exception as e:
+    print(e)
+    t1p = False
 print("====")
 try:
-    test3 = get_file_content("calculator", "pkg/calculator.py")
+    test2 = write_file("calculator", "pkg/morelorem.txt", "lorem ipsum dolor sit amet")
+    print(test2)
+    t2p = True
+except Exception as e:
+    print(e)
+    t2p = False
+print("====")
+try:
+    test3 = write_file("calculator", "/tmp/temp.txt", "this should not be allowed")
     print(test3)
+    t3p = True
 except Exception as whoops:
     print(whoops)
+    t3p = False
 print("====")
 try:
     test4 = get_file_content("calculator", "/bin/cat")
     print(test4)
+    t4p = True
 except Exception as whoops:
     print(whoops)
+    t4p = False
 print("====")
-print("if you see this it all worked")
+if t1p and t2p and t3p and t4p:
+    print("if you see this it all worked")
+else:
+    if not t1p:
+        print("test 1 failed")
+    if not t2p:
+        print("test 2 failed")
+    if not t3p:
+        print("test 3 failed")
+    if not t4p:
+        print("test 4 failed")
