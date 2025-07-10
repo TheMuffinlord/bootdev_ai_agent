@@ -1,9 +1,10 @@
-from functions.get_files_info import get_files_info
+#from functions.get_files_info import get_files_info
 from functions.get_file_content import get_file_content
 from functions.write_file import write_file
+from functions.run_python import run_python_file
 
 try:
-    test1 = write_file("calculator", "lorem.txt", "wait, this isn't lorem ipsum")
+    test1 = run_python_file("calculator", "main.py")
     print(test1)
     t1p = True
 except Exception as e:
@@ -11,7 +12,7 @@ except Exception as e:
     t1p = False
 print("====")
 try:
-    test2 = write_file("calculator", "pkg/morelorem.txt", "lorem ipsum dolor sit amet")
+    test2 = run_python_file("calculator", "tests.py")
     print(test2)
     t2p = True
 except Exception as e:
@@ -19,7 +20,7 @@ except Exception as e:
     t2p = False
 print("====")
 try:
-    test3 = write_file("calculator", "/tmp/temp.txt", "this should not be allowed")
+    test3 = run_python_file("calculator", "../main.py")
     print(test3)
     t3p = True
 except Exception as whoops:
@@ -27,7 +28,7 @@ except Exception as whoops:
     t3p = False
 print("====")
 try:
-    test4 = get_file_content("calculator", "/bin/cat")
+    test4 = run_python_file("calculator", "nonexistent.py")
     print(test4)
     t4p = True
 except Exception as whoops:
