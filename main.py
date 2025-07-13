@@ -2,16 +2,16 @@ import os, sys
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from functions.get_files_info import schema_get_files_info
-from functions.get_file_content import schema_get_file_content
-from functions.write_file import schema_write_file
-from functions.run_python import schema_run_python_file
+from functions.get_files_info import schema_get_files_info, get_files_info
+from functions.get_file_content import schema_get_file_content, get_file_content
+from functions.write_file import schema_write_file, write_file
+from functions.run_python import schema_run_python_file, run_python_file
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
 
 client = genai.Client(api_key=api_key)
-
+verbose = False
 system_prompt = """
 You are a helpful AI coding agent.
 
@@ -34,11 +34,48 @@ available_functions = types.Tool(
     ]
 )
 
+def call_function(function_call_part, verbose=False):
+    
+    if verbose == True:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    else:
+        print(f" - Calling function: {function_call_part.name}")
+    function_dict = {
+        "get_files_info": get_files_info,
+        "get_file_content": get_file_content,
+        "run_python_file": run_python_file,
+        "write_file": write_file,
+    }
+    if function_call_part.name in function_dict:
+        function_result = function_dict[function_call_part.name](working_directory="calculator",**function_call_part.args)
+        #print(function_result)
+    else:
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"error": f"Unknown function: {function_call_part.name}"},
+                )
+            ],
+        )
+    return types.Content(
+        role="tool",
+        parts=[
+            types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"result": function_result},
+            )
+        ],
+    )
+
+
 if len(sys.argv) == 1:
     sys.exit("prompt must be provided")
 else:
     user_prompt = sys.argv[1]
-
+    if "--verbose" in sys.argv:
+        verbose = True
     messages = [
         types.Content(role="user", parts=[types.Part(text=user_prompt)]),
     ]
@@ -53,10 +90,16 @@ else:
     if response.function_calls != None:
         r_funcs = response.function_calls
         for function in r_funcs:
-            print(f"Calling function: {function.name}({function.args})")             
+            print(f"LINE 94: Calling function: {function.name}({function.args})")    
+            result = call_function(function, verbose)   
+            if result.parts[0].function_response.response:
+                if verbose:
+                    print(f"-> {result.parts[0].function_response.response}")
+            else:
+                raise Exception(f"invalid response from function. result: {result}")
     else:
         print(response.text)
-    if "--verbose" in sys.argv:
+    if verbose:
         print(f"User prompt:", user_prompt)
         print(f"Prompt tokens:", response.usage_metadata.prompt_token_count)
         print(f"Response tokens:", response.usage_metadata.candidates_token_count)
