@@ -6,23 +6,23 @@ from google.genai import types
 from functions.constants import FILE_LENGTH_LIMIT
 
 def get_file_content(working_directory, file_path):
-    fullpath = os.path.join(working_directory, file_path)
     
-    wd_paths = os.listdir(os.path.split(fullpath)[0])
-    file_alone = os.path.split(file_path)[1]
-    if file_alone not in wd_paths:
-        raise Exception(f'Error: Cannot read "{file_path}" as it is outside the permitted working directory. Full path: {fullpath}')
-    yes_file = os.path.isfile(os.path.abspath(fullpath))
-    if yes_file != True:
-        raise Exception(f'Error: File not found or is not a regular file: "{file_path}"')
-    with open(fullpath, "r") as f:
-        try:
+    abs_fullpath = os.path.abspath(os.path.join(working_directory, file_path))
+    abs_workdir = os.path.abspath(working_directory)
+    if not abs_fullpath.startswith(abs_workdir):
+        return f'Error: Cannot read "{file_path}" as it is outside the permitted working directory.'
+    
+    if not os.path.isfile(abs_fullpath):
+        return f'Error: File not found or is not a regular file: "{file_path}". debug full path: {abs_fullpath}'
+    try:
+        with open(abs_fullpath, "r") as f:
             file_string = f.read(FILE_LENGTH_LIMIT)
             if len(f.read()) > FILE_LENGTH_LIMIT:
                 file_string += f'[...File "{file_path}" truncated at {FILE_LENGTH_LIMIT} characters]'
-        except Exception as e:
-            return f'ERROR: {e}'
-    return file_string
+        return file_string
+    except Exception as e:
+        return f'Error reading file "{file_path}": {e}'
+    
 
 schema_get_file_content = types.FunctionDeclaration(
     name="get_file_content",

@@ -36,10 +36,7 @@ available_functions = types.Tool(
 
 def call_function(function_call_part, verbose=False):
     
-    if verbose == True:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-    else:
-        print(f" - Calling function: {function_call_part.name}")
+   
     function_dict = {
         "get_files_info": get_files_info,
         "get_file_content": get_file_content,
@@ -47,7 +44,13 @@ def call_function(function_call_part, verbose=False):
         "write_file": write_file,
     }
     if function_call_part.name in function_dict:
-        function_result = function_dict[function_call_part.name](working_directory="calculator",**function_call_part.args)
+        args = dict(function_call_part.args)
+        args["working_directory"] = "calculator"
+        function_result = function_dict[function_call_part.name](**args)
+        if verbose == True:
+            print(f"Calling function: {function_call_part.name}({args})")
+        else:
+            print(f" - Calling function: {function_call_part.name}")
         #print(function_result)
     else:
         return types.Content(
@@ -69,38 +72,69 @@ def call_function(function_call_part, verbose=False):
         ],
     )
 
+def main():
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    verbose = "--verbose" in sys.argv
+    if not args:
+        sys.exit("prompt must be provided")
 
-if len(sys.argv) == 1:
-    sys.exit("prompt must be provided")
-else:
-    user_prompt = sys.argv[1]
-    if "--verbose" in sys.argv:
-        verbose = True
+    user_prompt = " ".join(args)
+    if verbose:
+        print(f"User prompt:", user_prompt)
     messages = [
         types.Content(role="user", parts=[types.Part(text=user_prompt)]),
     ]
+    loop = 0
+    while True:
+        loop += 1
+        if loop > 20:
+            print("Loop 20 exit.")
+            sys.exit(1)
+            
+        try:
+            final = generate_content(client, messages, verbose)
+            if final:
+                print("Final response:")
+                print(final)
+                break
+            
+        except Exception as e:
+            print(f"ERROR: {e} on loop {loop}")
+
+        
+
+def generate_content(client, messages, verbose):
     response = client.models.generate_content(
-        model="gemini-2.0-flash-001",
-        contents=messages,
-        config=types.GenerateContentConfig(
-            tools=[available_functions], 
-            system_instruction=system_prompt
-            ),
-        )
-    if response.function_calls != None:
-        r_funcs = response.function_calls
-        for function in r_funcs:
-            print(f"LINE 94: Calling function: {function.name}({function.args})")    
-            result = call_function(function, verbose)   
-            if result.parts[0].function_response.response:
-                if verbose:
-                    print(f"-> {result.parts[0].function_response.response}")
-            else:
-                raise Exception(f"invalid response from function. result: {result}")
-    else:
-        print(response.text)
+                model="gemini-2.0-flash-001",
+                contents=messages,
+                config=types.GenerateContentConfig(
+                    tools=[available_functions], 
+                    system_instruction=system_prompt
+                    ),
+                )
     if verbose:
-        print(f"User prompt:", user_prompt)
         print(f"Prompt tokens:", response.usage_metadata.prompt_token_count)
         print(f"Response tokens:", response.usage_metadata.candidates_token_count)
+    if response.candidates:
+        for candidate in response.candidates:
+            content = candidate.content
+            messages.append(content)
+    
+    if not response.function_calls:
+        return response.text
+    
+    response_functions = []
+    r_funcs = response.function_calls
+    for function in r_funcs:
+        if verbose:
+            print(f"Calling function: {function.name}({function.args})")    
+        result = call_function(function, verbose)   
+        if not result.parts or not result.parts[0].function_response:
+            raise Exception("empty function call result")
+        if verbose:
+            print(f"->: {result.parts[0].function_response.response}")
+        response_functions.append(result.parts[0])
+    messages.append(types.Content(role="tool", parts=response_functions))
 
+if __name__ == "__main__":
+    main()
